@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.mmdb
+.env
+.country-next/
+.country-old/
