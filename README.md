@@ -4,7 +4,7 @@ Collects candidate proxies from Walla, habibi, shaikh and HProxy, validates them
 
 ## Setup
 
-The project uses the bundled database archive `geoip/GeoLite2-Country_20261110.tar.gz`, **not** an online MaxMind download or credentials. Upload that file (from the complete project ZIP) to the `geoip/` folder of this repository. It is required; refresh will fail without it. The archive has an expiry safeguard (December 5, 2026), and must be replaced regularly. For newer releases, edit the file name in the workflow and date in `zaz.py`.
+The hourly GitHub Actions workflow **automatically downloads the current official GeoLite2-Country database** directly from MaxMind. Configure two GitHub Actions repository secrets via **Settings → Secrets and variables → Actions → New repository secret**: `MAXMIND_ACCOUNT_ID` and `MAXMIND_LICENSE_KEY`. These are required; never commit credentials. The downloaded `.mmdb` is used locally on the runner (it is not published to the repo). The program checks the MaxMind MMDB metadata to reject incorrect or overly old databases (older than 30 days), with no hardcoded December 2026 expiry. The previously bundled archive is no longer required and should not be uploaded to this public repository.
 
 Enable **Actions**, and set repository **Settings → Actions → General → Workflow permissions → Read and write permissions**. Trigger **Refresh validated proxies** manually the first time. Scheduled runs execute at minute 13 each hour UTC, subject to GitHub's scheduling delays.
 
