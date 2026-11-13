@@ -125,7 +125,11 @@ async def check_proxy(country, proto, proxy, limit, seconds):
                 async with sess.get(TEST_URL, proxy=f"http://{proxy}",
                                     allow_redirects=False) as resp:
                     return resp.status == 204
-        except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError):
+        except Exception:
+            # Public proxies routinely refuse connections or fail SOCKS handshakes.
+            # python-socks raises ProxyConnectionError/ProxyError, which are not
+            # necessarily aiohttp.ClientError; a single bad endpoint must not
+            # abort the entire validation batch.
             return False
 
 
