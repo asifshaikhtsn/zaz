@@ -24,19 +24,27 @@ jobs:
           python-version: "3.12"
       - name: Install Python dependencies
         run: pip install -r requirements.txt
-      - name: Extract bundled MaxMind GeoLite2 Country DB
+      - name: Download latest MaxMind GeoLite2 Country database
         shell: bash
+        env:
+          MAXMIND_ACCOUNT_ID: ${{ secrets.MAXMIND_ACCOUNT_ID }}
+          MAXMIND_LICENSE_KEY: ${{ secrets.MAXMIND_LICENSE_KEY }}
         run: |
           set -euo pipefail
-          ARCHIVE="geoip/GeoLite2-Country_20261110.tar.gz"
-          if [ ! -s "$ARCHIVE" ]; then
-            echo "::error::Missing $ARCHIVE; upload your bundled database archive."
+          : "${MAXMIND_ACCOUNT_ID:?Add MAXMIND_ACCOUNT_ID under Actions repository secrets}"
+          : "${MAXMIND_LICENSE_KEY:?Add MAXMIND_LICENSE_KEY under Actions repository secrets}"
+          mkdir -p "$RUNNER_TEMP/zaz-geoip"
+          curl --fail --silent --show-error --location --retry 3 \
+            --user "$MAXMIND_ACCOUNT_ID:$MAXMIND_LICENSE_KEY" \
+            'https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz' \
+            --output "$RUNNER_TEMP/zaz-geoip/GeoLite2-Country.tar.gz"
+          tar -xzf "$RUNNER_TEMP/zaz-geoip/GeoLite2-Country.tar.gz" \
+            -C "$RUNNER_TEMP/zaz-geoip"
+          DB="$(find "$RUNNER_TEMP/zaz-geoip" -type f -name GeoLite2-Country.mmdb -print -quit)"
+          if [ -z "$DB" ] || [ ! -s "$DB" ]; then
+            echo "::error::GeoLite2-Country.mmdb was not found in MaxMind download"
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/zaz-geoip"
-          tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP/zaz-geoip"
-          DB="$(find "$RUNNER_TEMP/zaz-geoip" -type f -name GeoLite2-Country.mmdb -print -quit)"
-          test -n "$DB"
           echo "GEOIP_DB_PATH=$DB" >> "$GITHUB_ENV"
       - name: Fetch, geolocate and validate proxy candidates
         run: python zaz.py
