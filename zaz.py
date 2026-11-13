@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""zaz: validate public proxies, use bundled MaxMind DB, publish country-filtered lists."""
+"""zaz: validate public proxies, use current MaxMind DB, publish country-filtered lists."""
 import asyncio
 import collections
 import datetime as dt
@@ -185,13 +185,18 @@ async def main():
     allowed = set(config["allowed_countries"])
     if len(allowed) != 43:
         raise RuntimeError("Expected exactly 43 countries/territories")
-    # A bundled snapshot must be kept fresh. Update this release date when replacing DB.
-    release_date = dt.date(2026, 11, 10)
-    if (dt.datetime.now(dt.timezone.utc).date() - release_date).days > 25:
-        raise RuntimeError("Bundled GeoLite2 DB is stale: replace before publishing")
+    # Validate the actual MMDB build date, not a hardcoded archive filename.
     db_path = Path(os.environ.get("GEOIP_DB_PATH", "GeoLite2-Country.mmdb"))
     if not db_path.is_file():
-        raise RuntimeError("Bundled GeoLite2 Country .mmdb missing")
+        raise RuntimeError("GeoLite2 Country .mmdb missing; automatic download must succeed")
+    with geoip2.database.Reader(str(db_path)) as reader:
+        metadata = reader.metadata()
+        if metadata.database_type != "GeoLite2-Country":
+            raise RuntimeError("Wrong MaxMind database: GeoLite2-Country is required")
+        built = dt.datetime.fromtimestamp(metadata.build_epoch, tz=dt.timezone.utc)
+        age_days = (dt.datetime.now(dt.timezone.utc) - built).total_seconds() / 86400
+        if age_days > 30 or age_days < -2:
+            raise RuntimeError(f"MaxMind database is outdated or has invalid build date ({age_days:.1f} days old)")
     candidates, source_counts, failures, downloaded = await fetch_candidates(config)
     with geoip2.database.Reader(str(db_path)) as db:
         selected = select_for_test(candidates, db, allowed, config["max_tests_per_run"])
