@@ -1,0 +1,64 @@
+name: Refresh validated proxies
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "13 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zaz-hourly-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: Extract bundled MaxMind GeoLite2 Country DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="geoip/GeoLite2-Country_20261110.tar.gz"
+          if [ ! -s "$ARCHIVE" ]; then
+            echo "::error::Missing $ARCHIVE; upload your bundled database archive."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/zaz-geoip"
+          tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP/zaz-geoip"
+          DB="$(find "$RUNNER_TEMP/zaz-geoip" -type f -name GeoLite2-Country.mmdb -print -quit)"
+          test -n "$DB"
+          echo "GEOIP_DB_PATH=$DB" >> "$GITHUB_ENV"
+      - name: Fetch, geolocate and validate proxy candidates
+        run: python zaz.py
+      - name: Commit refreshed proxy lists
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A country all_working.txt last_run.json
+          if git diff --cached --quiet; then
+            echo "No output changes"
+            exit 0
+          fi
+          git commit -m "Refresh validated country proxies [skip ci]"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
+              echo "Published successfully"
+              exit 0
+            fi
+            echo "Retry $attempt"
+            sleep 10
+          done
+          echo "::error::Unable to push refreshed proxy lists"
+          exit 1
