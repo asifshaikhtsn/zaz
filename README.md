@@ -8,7 +8,7 @@ The hourly GitHub Actions workflow **automatically downloads the current officia
 
 Enable **Actions**, and set repository **Settings → Actions → General → Workflow permissions → Read and write permissions**. Trigger **Refresh validated proxies** manually the first time. Scheduled runs execute at minute 13 each hour UTC, subject to GitHub's scheduling delays.
 
-Output: `country/US/http.txt`, `country/GB/socks5.txt`, etc.; `all_working.txt` and `last_run.json`. Unverified, unsupported-country and unresolved country proxies are excluded. The source's country folder is never trusted as evidence of the IP's real location. Tests are performed from GitHub's hosted runner and don't guarantee reachability from other networks.
+Output: one `working_proxies/` folder with `all.txt` (combined `scheme://IP:PORT` list), `http.txt`, `https.txt`, `socks4.txt`, and `socks5.txt` (protocol-specific `IP:PORT` lists). No country output subfolders. `last_run.json` remains at repository root. Unverified, unsupported-country and unresolved country proxies are excluded. The source's country folder is never trusted as evidence of the IP's real location. Tests are performed from GitHub's hosted runner and don't guarantee reachability from other networks.
 
 Database attribution: **This product includes GeoLite Data created by MaxMind, available from https://www.maxmind.com**. Also includes GeoNames data. See `geoip/LICENSE.txt`, `geoip/COPYRIGHT.txt` and https://www.maxmind.com/en/geolite/eula. Public redistribution of the database requires complying with the GeoLite EULA, including downstream requirements, attribution, and deleting old databases.
 

@@ -37,13 +37,16 @@ class ZazTests(unittest.TestCase):
             old = os.getcwd()
             os.chdir(d)
             try:
-                Path("country/US").mkdir(parents=True)
-                Path("country/US/http.txt").write_text("old:80\n")
+                Path("working_proxies").mkdir(parents=True)
+                Path("working_proxies/http.txt").write_text("old:80\n")
                 with self.assertRaises(RuntimeError):
                     publish(set(), {}, 1)
-                self.assertEqual(Path("country/US/http.txt").read_text(), "old:80\n")
+                self.assertEqual(Path("working_proxies/http.txt").read_text(), "old:80\n")
                 publish({("US", "http", "8.8.8.8:80")}, {}, 1)
                 self.assertEqual(json.loads(Path("last_run.json").read_text())["stored_count"], 1)
+                self.assertEqual(Path("working_proxies/http.txt").read_text(), "8.8.8.8:80\n")
+                self.assertEqual(Path("working_proxies/all.txt").read_text(), "http://8.8.8.8:80\n")
+                self.assertFalse(Path("working_proxies/US").exists())
             finally:
                 os.chdir(old)
 

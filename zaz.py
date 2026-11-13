@@ -141,45 +141,53 @@ async def validate(candidates, config):
 
 
 def publish(validated, report, threshold):
+    """Publish all validated proxies in one folder; no country subfolders."""
     if len(validated) < threshold:
         raise RuntimeError("Not enough live proxies; preserving existing outputs")
-    next_dir = Path(".country-next")
-    old_dir = Path(".country-old")
-    if next_dir.exists():
-        shutil.rmtree(next_dir)
-    next_dir.mkdir()
-    country_counts = collections.Counter()
-    protocol_counts = collections.Counter()
-    combined = []
-    groups = collections.defaultdict(list)
-    for cc, proto, proxy in validated:
-        groups[(cc, proto)].append(proxy)
-        combined.append(f"{proto}://{proxy}")
-        country_counts[cc] += 1
-        protocol_counts[proto] += 1
-    for (cc, proto), addresses in groups.items():
-        dst = next_dir / cc
-        dst.mkdir(exist_ok=True)
-        (dst / f"{proto}.txt").write_text("\n".join(sorted(addresses)) + "\n",
-                                           encoding="utf-8")
-    if old_dir.exists():
-        shutil.rmtree(old_dir)
-    current = Path("country")
-    if current.exists():
-        current.rename(old_dir)
-    next_dir.rename(current)
-    Path("all_working.txt").write_text("\n".join(sorted(combined)) + "\n",
-                                       encoding="utf-8")
+    staging = Path(".working-proxies-next")
+    previous = Path(".working-proxies-old")
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir()
+    countries = collections.Counter()
+    protocols = collections.Counter()
+    by_protocol = collections.defaultdict(set)
+    combined = set()
+    for country, proto, address in validated:
+        countries[country] += 1
+        protocols[proto] += 1
+        by_protocol[proto].add(address)
+        combined.add(f"{proto}://{address}")
+    (staging / "all.txt").write_text("\n".join(sorted(combined)) + "\n", encoding="utf-8")
+    for proto in PROTOCOLS:
+        items = sorted(by_protocol[proto])
+        (staging / f"{proto}.txt").write_text(
+            "\n".join(items) + ("\n" if items else ""), encoding="utf-8"
+        )
     report.update({
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
         "stored_count": len(validated),
-        "country_counts": dict(sorted(country_counts.items())),
-        "protocol_counts": dict(sorted(protocol_counts.items()))
+        "country_counts": dict(sorted(countries.items())),
+        "protocol_counts": dict(sorted(protocols.items()))
     })
-    Path("last_run.json").write_text(json.dumps(report, indent=2) + "\n",
-                                      encoding="utf-8")
-    if old_dir.exists():
-        shutil.rmtree(old_dir)
+    current = Path("working_proxies")
+    if previous.exists():
+        shutil.rmtree(previous)
+    if current.exists():
+        current.rename(previous)
+    try:
+        staging.rename(current)
+        Path("last_run.json").write_text(
+            json.dumps(report, indent=2) + "\n", encoding="utf-8"
+        )
+    except Exception:
+        if current.exists():
+            shutil.rmtree(current)
+        if previous.exists():
+            previous.rename(current)
+        raise
+    if previous.exists():
+        shutil.rmtree(previous)
     print(json.dumps({k: report[k] for k in
                       ("timestamp", "stored_count", "country_counts")}, indent=2))
 

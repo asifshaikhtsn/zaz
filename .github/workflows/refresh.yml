@@ -54,12 +54,12 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A country all_working.txt last_run.json
+          git add -A -- working_proxies last_run.json
           if git diff --cached --quiet; then
             echo "No output changes"
             exit 0
           fi
-          git commit -m "Refresh validated country proxies [skip ci]"
+          git commit -m "Refresh working proxies [skip ci]"
           for attempt in 1 2 3; do
             if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then
               echo "Published successfully"
