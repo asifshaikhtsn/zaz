@@ -50,8 +50,8 @@
     "asifshaikhtsn/shaikh",
     "hproxy-com/free-proxy-list"
   ],
-  "max_tests_per_run": 15000,
-  "concurrency": 140,
+  "max_tests_per_run": 40000,
+  "concurrency": 220,
   "timeout_seconds": 9,
   "minimum_valid_to_publish": 1
 }

@@ -2,7 +2,7 @@ name: Refresh validated proxies
 on:
   workflow_dispatch:
   schedule:
-    - cron: "13 * * * *"
+    - cron: "7,22,37,52 * * * *"
 
 permissions:
   contents: write
@@ -22,9 +22,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Skip fresh scheduled refreshes
+        id: gate
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: python scripts/should_refresh.py
       - name: Install Python dependencies
+        if: steps.gate.outputs.should_run == 'true'
         run: pip install -r requirements.txt
       - name: Download latest MaxMind GeoLite2 Country database
+        if: steps.gate.outputs.should_run == 'true'
         shell: bash
         env:
           MAXMIND_ACCOUNT_ID: ${{ secrets.MAXMIND_ACCOUNT_ID }}
@@ -47,8 +54,10 @@ jobs:
           fi
           echo "GEOIP_DB_PATH=$DB" >> "$GITHUB_ENV"
       - name: Fetch, geolocate and validate proxy candidates
+        if: steps.gate.outputs.should_run == 'true'
         run: python zaz.py
       - name: Commit refreshed proxy lists
+        if: steps.gate.outputs.should_run == 'true'
         shell: bash
         run: |
           set -euo pipefail
